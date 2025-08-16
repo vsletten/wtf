@@ -112,9 +112,6 @@ Treat `OPENAI_API_KEY` like any other secret:
 **It says:** `ERROR: OPENAI_API_KEY is not set.`
  → Export your key (`export OPENAI_API_KEY=...`) in your shell profile.
 
-**HTTP 400 invalid type (`'text'` vs `'input_text'`)**
- → This script already uses the correct schema (`instructions` + string `input`). If you edited it to the structured form, ensure you use `{"type": "input_text"}` for user inputs.
-
 **I need Unicode output.**
  → Replace the last line with:
 
