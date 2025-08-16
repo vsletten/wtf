@@ -6,17 +6,20 @@
 import json, os, sys, time, threading, random
 from urllib import request, error
 
+# Toggle spinner:
+spinner_enabled = bool(os.getenv("WTF_ENABLE_SPINNER", True))
+
 # Spinner timing:
-WTF_GLYPH_INTERVAL = 0.25   # seconds between glyph frames
-WTF_PHRASE_INTERVAL = 1.0   # seconds between phrase changes
+glyph_interval = float(os.getenv("WTF_GLYPH_INTERVAL", 0.25))   # seconds between glyph frames
+phrase_interval = float(os.getenv("WTF_PHRASE_INTERVAL", 1.0))   # seconds between phrase changes
 
 # Toggle color output:
-WTF_ENABLE_COLOR = os.getenv("WTF_ENABLE_COLOR", True)
+color_enabled = bool(os.getenv("WTF_ENABLE_COLOR", True))
 
 # Spinner colors: defaults keep it readable
-WTF_GLYPH_COLOR = os.getenv("WTF_GLYPH_COLOR", "36")   # cyan
-WTF_TEXT_COLOR  = os.getenv("WTF_TEXT_COLOR",  "97")   # bright white
-WTF_RESET_COLOR = "\x1b[0m"
+glyph_color = os.getenv("WTF_GLYPH_COLOR", "36")   # cyan
+text_color  = os.getenv("WTF_TEXT_COLOR",  "97")   # bright white
+reset_color = "\x1b[0m"
 
 # Spinner color helpers:
 def supports_color(stream) -> bool:
@@ -60,10 +63,10 @@ def spinner(stop_event):
     if not sys.stderr.isatty() or stop_event.is_set():
         return
     
-    color_term = supports_color(sys.stderr) and os.getenv("WTF_ENABLE_COLOR", True) is True
-    glyph_color = fg(WTF_GLYPH_COLOR) if color_term else ""
-    text_color = fg(WTF_TEXT_COLOR) if color_term else ""
-    reset_color = WTF_RESET_COLOR if color_term else ""
+    color_term = supports_color(sys.stderr) and color_enabled
+    glyph_color_code = fg(glyph_color) if color_term else ""
+    text_color_code = fg(text_color) if color_term else ""
+    reset_color_code = reset_color if color_term else ""
 
     phrases = [
         "thinking...", "serving brainrot...", "loading vibes...",
@@ -81,17 +84,17 @@ def spinner(stop_event):
 
     while not stop_event.is_set():
         # render current frame
-        msg = f"{glyph_color}[{glyphs[glyph_i]}]{reset_color} {text_color}{phrases[phrase_i]}{reset_color}"
+        msg = f"{glyph_color_code}[{glyphs[glyph_i]}]{reset_color_code} {text_color_code}{phrases[phrase_i]}{reset_color_code}"
         sys.stderr.write("\r" + msg[:width].ljust(width))
         sys.stderr.flush()
 
         # advance glyph every WTF_GLYPH_INTERVAL
-        if not stop_event.wait(WTF_GLYPH_INTERVAL):
+        if not stop_event.wait(glyph_interval):
             glyph_i = (glyph_i + 1) % len(glyphs)
 
             # advance phrase every WTF_PHRASE_INTERVAL
             now = time.monotonic()
-            if now - last_phrase_change >= WTF_PHRASE_INTERVAL:
+            if now - last_phrase_change >= phrase_interval:
                 phrase_i = (phrase_i + 1) % len(phrases)
                 last_phrase_change = now
 
@@ -164,7 +167,7 @@ payload_no_web = {
 stop = threading.Event()
 t = None
 try:
-    if sys.stderr.isatty():
+    if spinner_enabled and sys.stderr.isatty():
         t = threading.Thread(target=spinner, args=(stop,), daemon=True)
         t.start()
 
