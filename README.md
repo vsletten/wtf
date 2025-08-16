@@ -57,7 +57,14 @@ wtf "short: parquet on S3 vs ingesting into DuckDB?"
 - `WTF_LLM_MODEL` *(optional)* — model name; defaults to `gpt-4o`.
    Shorthands supported: `4o`, `4o-mini`, `4.1`, `5`.
 - `OPENAI_BASE_URL` *(optional)* — override the base URL (e.g., a compatible proxy). Default: `https://api.openai.com`.
-- `WTF_PHRASE_DELAY` *(optional)* — spinner phrase duration (how often to change phrases), in seconds (float). Default: `1.0`. 
+- `WTF_PHRASE_DELAY` *(optional)* — spinner phrase duration, in seconds between phrases (float). Default: `1.0`. 
+- `WTF_GLYPH_INTERVAL` *(optional)* — spinner glyph duration, seconds between glyph frames (float). Default: `0.25`.
+
+- `WTF_ENABLE_COLOR` *(optional)* — toggle color display for spinner. Default: `True`.
+- `WTF_GLYPH_COLOR` *(optional)* — color code for glyph. Default: `36`.  *(cyan)*
+- `WTF_TEXT_COLOR` *(optional)* — color code for text. Default: `97`.  *(bright white)*
+- `WTF_RESET_COLOR` *(optional)* — reset color code. Default: `\x1b[0m`.
+
 
 ## Usage
 
@@ -68,6 +75,7 @@ wtf "give me a 1-line jq to extract the first field"
 ```
 
 - Output is **ASCII-only** to keep terminals happy.
+- Supports **basic 8/16 color text** for spinner. *(disable by setting WTF_ENABLE_COLOR=False)*
 - **Spinner** runs on stderr and won’t pollute pipelines:
 
 ```bash
