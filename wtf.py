@@ -1,9 +1,34 @@
 #!/usr/bin/env python3
-# wtf: tiny Python client for OpenAI Responses API
+# wtf: tiny Python client for OpenAI Responses API, with a playful spinner
 # Deps: stdlib only (urllib, json, threading)
+#
 
 import json, os, sys, time, threading, random
 from urllib import request, error
+
+# Spinner timing:
+WTF_GLYPH_INTERVAL = 0.25   # seconds between glyph frames
+WTF_PHRASE_INTERVAL = 1.0   # seconds between phrase changes
+
+# Toggle color output:
+WTF_ENABLE_COLOR = os.getenv("WTF_ENABLE_COLOR", True)
+
+# Spinner colors: defaults keep it readable
+WTF_GLYPH_COLOR = os.getenv("WTF_GLYPH_COLOR", "36")   # cyan
+WTF_TEXT_COLOR  = os.getenv("WTF_TEXT_COLOR",  "97")   # bright white
+WTF_RESET_COLOR = "\x1b[0m"
+
+# Spinner color helpers:
+def supports_color(stream) -> bool:
+    return getattr(stream, "isatty", lambda: False)() \
+           and os.getenv("TERM", "") != "dumb"
+
+def fg(code: str) -> str:
+    """Return an ANSI 'set foreground' sequence.
+    `code` examples: '36' (cyan), '96' (bright cyan),
+                     '38;5;208' (256-color orange), '38;2;255;165;0' (truecolor orange)."""
+    return f"\x1b[{code}m"
+
 
 INSTRUCTIONS = (
     "You should respond to the user's prompt in a helpful and respectful way. "
@@ -23,7 +48,7 @@ if len(sys.argv) < 2:
 
 api_key = os.getenv("OPENAI_API_KEY") or die("OPENAI_API_KEY is not set.")
 model = os.getenv("WTF_LLM_MODEL", "gpt-4o")
-aliases = {"4o": "gpt-4o", "4o-mini": "gpt-4o-mini", "4.1": "gpt-4.1", "5":"gpt-5"}
+aliases = {"4o": "gpt-4o", "4o-mini": "gpt-4o-mini", "4.1": "gpt-4.1"}
 model = aliases.get(model.lower(), model)
 
 base_url = (os.getenv("OPENAI_BASE_URL") or "https://api.openai.com").rstrip("/")
@@ -32,30 +57,45 @@ prompt = " ".join(sys.argv[1:])
 
 # -------- spinner (stderr only, to keep stdout clean) ----------
 def spinner(stop_event):
-    if not sys.stderr.isatty():
+    if not sys.stderr.isatty() or stop_event.is_set():
         return
+    
+    color_term = supports_color(sys.stderr) and os.getenv("WTF_ENABLE_COLOR", True) is True
+    glyph_color = fg(WTF_GLYPH_COLOR) if color_term else ""
+    text_color = fg(WTF_TEXT_COLOR) if color_term else ""
+    reset_color = WTF_RESET_COLOR if color_term else ""
+
     phrases = [
-        "thinking...", "vibing in Ohio...", "loading vibes...",
+        "thinking...", "serving brainrot...", "loading vibes...",
         "cooking...", "chewing on this...", "spinning up neurons...",
         "summoning citations...", "buffering brilliance...",
         "optimizing takes...", "deep in the sauce...", "caffeinating ideas...",
-        "low-latency daydreaming...", "min-maxing the answer...", "nerd sniping myself...", "feeling skibbidy..."
+        "low-latency daydreaming...", "min-maxing the answer...", "nerd sniping myself..."
     ]
     random.shuffle(phrases)
     glyphs = "|/-\\"
-    phrase_idx = 0
-    glyph_idx = 0
+    glyph_i = 0
+    phrase_i = 0
+    last_phrase_change = time.monotonic()
     width = 78
-    glyph_delay = 0.25
+
     while not stop_event.is_set():
-        msg = f"[{glyphs[glyph_idx % len(glyphs)]}] {phrases[phrase_idx % len(phrases)]}"
+        # render current frame
+        msg = f"{glyph_color}[{glyphs[glyph_i]}]{reset_color} {text_color}{phrases[phrase_i]}{reset_color}"
         sys.stderr.write("\r" + msg[:width].ljust(width))
         sys.stderr.flush()
-        glyph_idx += 1
-        time.sleep(glyph_delay)
-        if glyph_idx % len(glyphs) == 0:
-            phrase_idx += 1
-    # clear line
+
+        # advance glyph every WTF_GLYPH_INTERVAL
+        if not stop_event.wait(WTF_GLYPH_INTERVAL):
+            glyph_i = (glyph_i + 1) % len(glyphs)
+
+            # advance phrase every WTF_PHRASE_INTERVAL
+            now = time.monotonic()
+            if now - last_phrase_change >= WTF_PHRASE_INTERVAL:
+                phrase_i = (phrase_i + 1) % len(phrases)
+                last_phrase_change = now
+
+    # clear line on exit
     sys.stderr.write("\r" + " " * width + "\r")
     sys.stderr.flush()
 
@@ -108,7 +148,7 @@ def web_tool_unsupported(rj):
     msg = (err.get("message") if isinstance(err, dict) else str(err or "")).lower()
     return ("web_search" in msg) and ("unsupported" in msg or "not supported" in msg or "tool" in msg)
 
-# Build payloads
+# Build payloads per Responses API (instructions + plain-string input)
 payload_with_web = {
     "model": model,
     "instructions": INSTRUCTIONS,   # acts like system prompt
