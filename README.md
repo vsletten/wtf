@@ -145,9 +145,11 @@ wtf "short: best practice for DuckDB parquet on S3?"
 
 ```
 .
-├── wtf            # the single-file Python script (executable)
 ├── .env.template  # env vars used by wtf
-└── README.md      # this file
+├── .gitignore     # standard python .gitignore
+├── LICENSE        # the Unlicense
+├── README.md      # this file
+└── wtf.py         # the single-file Python script (executable)
 ```
 
 ## License
